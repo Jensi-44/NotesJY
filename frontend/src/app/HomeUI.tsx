@@ -14,7 +14,7 @@ type Note = {
   isArchived?: boolean;
 };
 
-const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const backend = process.env.NEXT_PUBLIC_API_URL || "https://notesjy.onrender.com";
 
 type Toast = {
   id: string;
