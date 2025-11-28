@@ -20,6 +20,9 @@ export class EmailService {
         pass: process.env.SMTP_PASS, // MUST be App Password
       },
     });
+    this.transporter.verify((err, success) => {
+    console.log("SMTP Test:", err || success);
+  });
   }
 
 
