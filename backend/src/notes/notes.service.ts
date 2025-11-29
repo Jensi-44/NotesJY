@@ -155,35 +155,55 @@ export class NotesService {
   }
 
 async shareNote(noteId: string, dto: ShareNoteDto, user: AuthUser) {
+  const note = await this.prisma.note.findUnique({
+    where: { id: noteId },
+  });
+  if (!note) throw new NotFoundException("Note not found");
 
-  const note = await this.prisma.note.findUnique({ where: { id: noteId } });
-
-  let targetUser = await this.prisma.user.findUnique({
+  // Check if user B already exists
+  const targetUser = await this.prisma.user.findUnique({
     where: { email: dto.email },
   });
 
-
+  // ----------------------------
+  // CASE 1: USER B DOES NOT EXIST
+  // ----------------------------
   if (!targetUser) {
 
-    await this.prisma.invitation.create({
-      data: {
-        email: dto.email,
-        noteId: noteId,
-      },
+    // Create invitation ONLY IF not already invited for this note
+    const existingInvite = await this.prisma.invitation.findFirst({
+      where: { email: dto.email, noteId }
     });
 
-    const inviteLink = `${process.env.FRONTEND_URL}/invite?email=${dto.email}&note=${noteId}`;
+    if (!existingInvite) {
+      await this.prisma.invitation.create({
+        data: {
+          email: dto.email,
+          noteId,
+          accepted: false,
+          userId: null,
+          acceptedAt: null
+        },
+      });
+    }
+
+    const inviteLink =
+      `${process.env.FRONTEND_URL}/invite?email=${dto.email}&note=${noteId}`;
 
     await this.emailService.sendInvitationEmail(
       dto.email,
-      note!.title,
+      note.title,
       user.username,
-      inviteLink,
+      inviteLink
     );
 
-    return { message: "Invitation sent. User must sign up to access note." };
+    return { message: "Invitation sent. User must sign up to access this note." };
   }
 
+  // ----------------------------
+  // CASE 2: USER B ALREADY EXISTS
+  // ----------------------------
+  // DIRECT SHARE (NO INVITATION)
   const share = await this.prisma.noteShare.upsert({
     where: {
       noteId_userId: {
@@ -199,17 +219,15 @@ async shareNote(noteId: string, dto: ShareNoteDto, user: AuthUser) {
     },
   });
 
-  const shareLink = `${process.env.FRONTEND_URL}/shared`;
-
   await this.emailService.sendShareNotification(
     targetUser.email,
-    note!.title,
+    note.title,
     user.username,
     dto.permission,
-    shareLink,
+    `${process.env.FRONTEND_URL}/shared`
   );
 
-  return share;
+  return { message: "Note shared successfully", share };
 }
 
   async getSharedNotes(user: AuthUser) {

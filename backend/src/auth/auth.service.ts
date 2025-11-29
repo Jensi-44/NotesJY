@@ -15,38 +15,86 @@ export class AuthService {
 
   constructor(private prisma: PrismaService) {}
 
-  async signup(dto: CreateUserDto) {
-    if (!dto.username) throw new BadRequestException('Username required');
-    if (!dto.email) throw new BadRequestException('Email required');
-    if (!dto.password) throw new BadRequestException('Password required');
+ async signup(dto: CreateUserDto) {
+  if (!dto.username) throw new BadRequestException('Username required');
+  if (!dto.email) throw new BadRequestException('Email required');
+  if (!dto.password) throw new BadRequestException('Password required');
 
-    const existingUsername = await this.prisma.user.findUnique({
-      where: { username: dto.username },
-    });
-    if (existingUsername) throw new ConflictException('Username already taken');
+  const existingUsername = await this.prisma.user.findUnique({
+    where: { username: dto.username },
+  });
+  if (existingUsername) throw new ConflictException('Username already taken');
 
-    const existingEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-    if (existingEmail) throw new ConflictException('Email already registered');
+  const existingEmail = await this.prisma.user.findUnique({
+    where: { email: dto.email },
+  });
+  if (existingEmail) throw new ConflictException('Email already registered');
 
-    const hashed = await bcrypt.hash(dto.password, 10);
+  // Hash password
+  const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    const user = await this.prisma.user.create({
-      data: {
-        username: dto.username,
-        email: dto.email,
-        password: hashed,
+  // -------------------------------------
+  // CREATE THE NEW USER
+  // -------------------------------------
+  const newUser = await this.prisma.user.create({
+    data: {
+      username: dto.username,
+      email: dto.email,
+      password: hashedPassword,
+    },
+  });
+
+  // -------------------------------------
+  // AUTO ACCEPT ALL INVITATIONS FOR EMAIL
+  // -------------------------------------
+
+  // Get all pending invitations for this email
+  // Find ALL invitations for this email (accepted or not)
+const pendingInvitations = await this.prisma.invitation.findMany({
+  where: { email: { equals: newUser.email, mode: "insensitive" } }
+});
+
+// Convert all invitations into note shares
+for (const invite of pendingInvitations) {
+  await this.prisma.noteShare.upsert({
+    where: {
+      noteId_userId: {
+        noteId: invite.noteId,
+        userId: newUser.id,
       },
-    });
+    },
+    update: {},
+    create: {
+      noteId: invite.noteId,
+      userId: newUser.id,
+      permission: "view",
+    },
+  });
 
-    return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.createdAt,
-    };
-  }
+  // Mark the invitation as fully accepted
+  await this.prisma.invitation.update({
+    where: { id: invite.id },
+    data: {
+      accepted: true,
+      userId: newUser.id,
+      acceptedAt: new Date(),
+    },
+  });
+}
+
+
+  // -------------------------------------
+  // RETURN NEW USER RESPONSE
+  // -------------------------------------
+  return {
+    id: newUser.id,
+    username: newUser.username,
+    email: newUser.email,
+    createdAt: newUser.createdAt,
+    invitationsAccepted: pendingInvitations.length,
+  };
+}
+
 
   async login(dto: CreateUserDto) {
     if (!dto.password) throw new BadRequestException('Password required');

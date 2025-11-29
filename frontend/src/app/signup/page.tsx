@@ -43,10 +43,22 @@ export default function SignupPage() {
       setLoading(false);
       const data = await res.json();
 
-      if (res.ok) {
-        setSuccess(true);
-        setTimeout(() => router.push("/login"), 1500);
-      } else {
+     if (res.ok) {
+  setSuccess(true);
+
+const pendingNote = localStorage.getItem("pendingNote");
+
+setTimeout(() => {
+  if (pendingNote) {
+    router.push(`/notes/${pendingNote}`);
+    localStorage.removeItem("pendingNote");
+  } else {
+    router.push("/login");
+  }
+}, 1500);
+
+}
+ else {
         setError(data.message || "Something went wrong");
       }
     } catch (err) {
