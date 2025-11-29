@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
-const backend = process.env.NEXT_PUBLIC_API_URL || "https://notesjy.onrender.com";
+const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function InviteForm() {
   const params = useSearchParams();
