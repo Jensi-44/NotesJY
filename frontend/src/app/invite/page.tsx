@@ -1,64 +1,42 @@
-import { Suspense } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import InviteForm from "./InviteForm";
 
-export const dynamic = "force-dynamic";
+const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export default function InvitePage() {
-<<<<<<< HEAD
-=======
   const params = useSearchParams();
   const router = useRouter();
 
   const email = params.get("email");
   const noteId = params.get("note");
 
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
+  const [userExists, setUserExists] = useState<boolean | null>(null);
 
-  async function acceptInvitation() {
+  useEffect(() => {
     if (!email || !noteId) return;
 
-    if (password.length < 6) {
-      setStatusMsg("Password must be at least 6 characters.");
-      return;
-    }
+    localStorage.setItem("pendingNote", noteId);
 
-    setLoading(true);
+    fetch(`${backend}/auth/check-user?email=${email}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.exists) {
+          setUserExists(true);
+          router.push("/login");
+        } else {
+          setUserExists(false);
+        }
+      })
+      .catch(() => setUserExists(false));
+  }, [email, noteId]);
 
-    try {
-      const res = await fetch(`${backend}/auth/accept-invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          noteId,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setStatusMsg(data.message || "Something went wrong.");
-        setLoading(false);
-        return;
-      }
-
-      setStatusMsg("Account created! Redirecting...");
-      setTimeout(() => router.push("/login"), 1500);
-    } catch (err) {
-      setStatusMsg("Server error. Try again.");
-    }
-
-    setLoading(false);
+  if (userExists === null) {
+    return <div className="p-6">Checking invitation…</div>;
   }
-  
+  if (userExists === true) return null;
 
->>>>>>> e9e06d7 (invitation)
-  return (
-    <Suspense fallback={<div className="p-6">Loading invitation…</div>}>
-      <InviteForm />
-    </Suspense>
-  );
+  return <InviteForm />;
 }

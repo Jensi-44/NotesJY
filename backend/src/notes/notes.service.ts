@@ -160,17 +160,13 @@ async shareNote(noteId: string, dto: ShareNoteDto, user: AuthUser) {
   });
   if (!note) throw new NotFoundException("Note not found");
 
-  // Check if user B already exists
   const targetUser = await this.prisma.user.findUnique({
     where: { email: dto.email },
   });
 
-  // ----------------------------
-  // CASE 1: USER B DOES NOT EXIST
-  // ----------------------------
+
   if (!targetUser) {
 
-    // Create invitation ONLY IF not already invited for this note
     const existingInvite = await this.prisma.invitation.findFirst({
       where: { email: dto.email, noteId }
     });
@@ -199,11 +195,6 @@ async shareNote(noteId: string, dto: ShareNoteDto, user: AuthUser) {
 
     return { message: "Invitation sent. User must sign up to access this note." };
   }
-
-  // ----------------------------
-  // CASE 2: USER B ALREADY EXISTS
-  // ----------------------------
-  // DIRECT SHARE (NO INVITATION)
   const share = await this.prisma.noteShare.upsert({
     where: {
       noteId_userId: {

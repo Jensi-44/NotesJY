@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import * as bcrypt from 'bcryptjs';
+  import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { CreateUserDto } from './dto/create-user.dto';
 
@@ -14,88 +14,68 @@ export class AuthService {
   private jwtSecret = process.env.JWT_SECRET || 'JWT_SECRET';
 
   constructor(private prisma: PrismaService) {}
+  async signup(dto: CreateUserDto) {
+    if (!dto.username) throw new BadRequestException('Username required');
+    if (!dto.email) throw new BadRequestException('Email required');
+    if (!dto.password) throw new BadRequestException('Password required');
 
- async signup(dto: CreateUserDto) {
-  if (!dto.username) throw new BadRequestException('Username required');
-  if (!dto.email) throw new BadRequestException('Email required');
-  if (!dto.password) throw new BadRequestException('Password required');
+    const existingUsername = await this.prisma.user.findUnique({
+      where: { username: dto.username },
+    });
+    if (existingUsername) throw new ConflictException('Username already taken');
 
-  const existingUsername = await this.prisma.user.findUnique({
-    where: { username: dto.username },
-  });
-  if (existingUsername) throw new ConflictException('Username already taken');
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existingEmail) throw new ConflictException('Email already registered');
 
-  const existingEmail = await this.prisma.user.findUnique({
-    where: { email: dto.email },
-  });
-  if (existingEmail) throw new ConflictException('Email already registered');
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-  // -------------------------------------
-  // CREATE THE NEW USER
-  // -------------------------------------
-  const newUser = await this.prisma.user.create({
-    data: {
-      username: dto.username,
-      email: dto.email,
-      password: hashedPassword,
-    },
-  });
-
-  // -------------------------------------
-  // AUTO ACCEPT ALL INVITATIONS FOR EMAIL
-  // -------------------------------------
-
-  // Get all pending invitations for this email
-  // Find ALL invitations for this email (accepted or not)
-const pendingInvitations = await this.prisma.invitation.findMany({
-  where: { email: { equals: newUser.email, mode: "insensitive" } }
-});
-
-// Convert all invitations into note shares
-for (const invite of pendingInvitations) {
-  await this.prisma.noteShare.upsert({
-    where: {
-      noteId_userId: {
-        noteId: invite.noteId,
-        userId: newUser.id,
+    const newUser = await this.prisma.user.create({
+      data: {
+        username: dto.username,
+        email: dto.email,
+        password: hashedPassword,
       },
-    },
-    update: {},
-    create: {
-      noteId: invite.noteId,
-      userId: newUser.id,
-      permission: "view",
-    },
-  });
+    });
+    const pendingInvitations = await this.prisma.invitation.findMany({
+      where: { email: { equals: newUser.email, mode: 'insensitive' } },
+    });
 
-  // Mark the invitation as fully accepted
-  await this.prisma.invitation.update({
-    where: { id: invite.id },
-    data: {
-      accepted: true,
-      userId: newUser.id,
-      acceptedAt: new Date(),
-    },
-  });
-}
+    for (const invite of pendingInvitations) {
+      await this.prisma.noteShare.upsert({
+        where: {
+          noteId_userId: {
+            noteId: invite.noteId,
+            userId: newUser.id,
+          },
+        },
+        update: {},
+        create: {
+          noteId: invite.noteId,
+          userId: newUser.id,
+          permission: 'view',
+        },
+      });
 
+      await this.prisma.invitation.update({
+        where: { id: invite.id },
+        data: {
+          accepted: true,
+          userId: newUser.id,
+          acceptedAt: new Date(),
+        },
+      });
+    }
 
-  // -------------------------------------
-  // RETURN NEW USER RESPONSE
-  // -------------------------------------
-  return {
-    id: newUser.id,
-    username: newUser.username,
-    email: newUser.email,
-    createdAt: newUser.createdAt,
-    invitationsAccepted: pendingInvitations.length,
-  };
-}
-
-
+    return {
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      createdAt: newUser.createdAt,
+      invitationsAccepted: pendingInvitations.length,
+    };
+  }
   async login(dto: CreateUserDto) {
     if (!dto.password) throw new BadRequestException('Password required');
 
@@ -109,6 +89,39 @@ for (const invite of pendingInvitations) {
 
     const ok = await bcrypt.compare(dto.password, user.password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
+
+    const pendingInvites = await this.prisma.invitation.findMany({
+      where: {
+        email: { equals: user.email, mode: 'insensitive' },
+        accepted: false,
+      },
+    });
+
+    for (const invite of pendingInvites) {
+      await this.prisma.noteShare.upsert({
+        where: {
+          noteId_userId: {
+            noteId: invite.noteId,
+            userId: user.id,
+          },
+        },
+        update: {},
+        create: {
+          noteId: invite.noteId,
+          userId: user.id,
+          permission: 'view',
+        },
+      });
+
+      await this.prisma.invitation.update({
+        where: { id: invite.id },
+        data: {
+          accepted: true,
+          acceptedAt: new Date(),
+          userId: user.id,
+        },
+      });
+    }
 
     const token = jwt.sign(
       {
@@ -127,6 +140,7 @@ for (const invite of pendingInvitations) {
         username: user.username,
         email: user.email,
       },
+      invitationsAccepted: pendingInvites.length,
     };
   }
 
@@ -138,48 +152,85 @@ for (const invite of pendingInvitations) {
     }
   }
 
- async acceptInvite(body: { email: string; password: string; noteId: string }) {
-  const { email, password, noteId } = body;
+  async acceptInvite(body: { email: string; password: string; noteId: string }) {
+    const { email, password, noteId } = body;
 
-  const invite = await this.prisma.invitation.findFirst({
-    where: { email, noteId }
-  });
+    const invite = await this.prisma.invitation.findFirst({
+      where: { email, noteId },
+    });
 
-  if (!invite) {
-    throw new BadRequestException("Invitation not found or expired.");
-  }
-
-  const hashed = await bcrypt.hash(password, 10);
-
-  const newUser = await this.prisma.user.create({
-    data: {
-      email,
-      username: email.split("@")[0],
-      password: hashed,
-    },
-  });
-
-  await this.prisma.noteShare.create({
-    data: {
-      noteId,
-      userId: newUser.id,
-      permission: "view",
-    },
-  });
-
-  await this.prisma.invitation.update({
-    where: { id: invite.id },
-    data: {
-      accepted: true,
-      acceptedAt: new Date(),
-      userId: newUser.id,
+    if (!invite) {
+      throw new BadRequestException('Invitation not found or expired.');
     }
-  });
 
-  return {
-    message: "Account created, invitation accepted, access granted.",
-    userId: newUser.id
-  };
-}
+    const exists = await this.prisma.user.findUnique({ where: { email } });
 
+    if (exists) {
+  
+      await this.prisma.noteShare.upsert({
+        where: {
+          noteId_userId: { noteId, userId: exists.id },
+        },
+        update: {},
+        create: {
+          noteId,
+          userId: exists.id,
+          permission: 'view',
+        },
+      });
+
+      await this.prisma.invitation.update({
+        where: { id: invite.id },
+        data: {
+          accepted: true,
+          acceptedAt: new Date(),
+          userId: exists.id,
+        },
+      });
+
+      return {
+        message: 'User already exists. Invitation accepted.',
+        redirect: 'login',
+      };
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    const newUser = await this.prisma.user.create({
+      data: {
+        email,
+        username: email.split('@')[0],
+        password: hashed,
+      },
+    });
+
+    await this.prisma.noteShare.create({
+      data: {
+        noteId,
+        userId: newUser.id,
+        permission: 'view',
+      },
+    });
+
+    await this.prisma.invitation.update({
+      where: { id: invite.id },
+      data: {
+        accepted: true,
+        acceptedAt: new Date(),
+        userId: newUser.id,
+      },
+    });
+
+    return {
+      message: 'Account created, invitation accepted, access granted.',
+      userId: newUser.id,
+    };
+  }
+  async checkUser(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    return { exists: !!user };
+  }
 }

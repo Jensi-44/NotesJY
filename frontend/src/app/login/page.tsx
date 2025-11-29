@@ -12,10 +12,11 @@ export default function LoginPage() {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  const submit = async (e: any) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess(false);
+
     if (!username || !password) {
       setError("Please fill in both fields");
       return;
@@ -27,30 +28,39 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
+
       const data = await res.json();
-      if (res.ok) {
-        localStorage.setItem("token", data.token);
 
-        try {
-          const payload = JSON.parse(atob(data.token.split(".")[1]));
-          if (payload.username) {
-            localStorage.setItem("username", payload.username);
-          }
-        } catch {
-          console.warn("JWT decode failed, but login is still fine");
-        }
-
-        setSuccess(true);
-        setTimeout(() => {
-          router.push("/");
-        }, 1200);
-      } else {
+      if (!res.ok) {
         setError(data.message || "Login failed");
+        return;
       }
+      localStorage.setItem("token", data.token);
+
+      try {
+        const payload = JSON.parse(atob(data.token.split(".")[1]));
+        if (payload.username) {
+          localStorage.setItem("username", payload.username);
+        }
+      } catch {}
+
+      setSuccess(true);
+
+      const pendingNote = localStorage.getItem("pendingNote");
+
+      setTimeout(() => {
+        if (pendingNote) {
+          router.push(`/notes/${pendingNote}`);
+          localStorage.removeItem("pendingNote");
+        } else {
+          router.push("/");
+        }
+      }, 1200);
     } catch {
       setError("Cannot connect to server. Is backend running?");
     }
   };
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-yellow-50">
@@ -119,3 +129,4 @@ export default function LoginPage() {
     </div>
   );
 }
+  
