@@ -343,22 +343,6 @@ function pushToast(message: string, type: Toast["type"] = "info", ttl = 3000) {
           Notes — <span className="text-yellow-600">{username}</span>
         </h1>
 
-        {/* <button
-          onClick={() => {
-            setFilterCategory("All");
-            setSearch("");
-          }}
-          className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 transition text-gray-900 font-medium rounded-lg shadow"
-        >
-          Clear Filters
-        </button> */}
-
-        {/* <button
-          onClick={() => router.push("/archive")}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow"
-        >
-          View Archived Notes
-        </button> */}
 
       </header>
 

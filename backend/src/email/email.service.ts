@@ -14,10 +14,10 @@ export class EmailService {
     this.transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
-      secure: false, // MUST be true for Gmail SSL
+      secure: false, 
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS, // MUST be App Password
+        pass: process.env.SMTP_PASS, 
       },
     });
     this.transporter.verify((err, success) => {
