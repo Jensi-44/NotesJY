@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import InviteForm from "./InviteForm";
 
@@ -38,5 +38,9 @@ export default function InvitePage() {
   }
   if (userExists === true) return null;
 
-  return <InviteForm />;
+   return (
+    <Suspense fallback={<div className="p-6">Loading…</div>}>
+      <InvitePage />
+    </Suspense>
+  );
 }
