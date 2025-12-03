@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
-const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const backend = process.env.NEXT_PUBLIC_API_URL || "https://test-fkc55.ondigitalocean.app";
 
 export default function InviteForm() {
   const params = useSearchParams();

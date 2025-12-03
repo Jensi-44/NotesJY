@@ -12,8 +12,8 @@ export class EmailService {
     }
 
     this.transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
+      host: "smtpout.secureserver.net",
+      port: 465,
       secure: false, 
       auth: {
         user: process.env.SMTP_USER,

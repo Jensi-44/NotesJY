@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const backend = process.env.NEXT_PUBLIC_API_URL || "https://test-fkc55.ondigitalocean.app";
 
 export default function NoteDetailsPage() {
   const { id } = useParams();

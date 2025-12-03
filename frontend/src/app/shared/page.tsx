@@ -14,7 +14,7 @@ type SharedNote = {
   permission: string;
 };
 
-const backend = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const backend = process.env.NEXT_PUBLIC_API_URL || "https://test-fkc55.ondigitalocean.app";
 
 export default function SharedPage() {
   const [sharedNotes, setSharedNotes] = useState<SharedNote[]>([]);
