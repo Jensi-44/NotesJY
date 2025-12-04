@@ -165,7 +165,6 @@ async shareNote(noteId: string, dto: ShareNoteDto, user: AuthUser) {
       where: { email: dto.email },
     });
 
-    // If user does not exist → Send Invitation Email
     if (!targetUser) {
       const existingInvite = await this.prisma.invitation.findFirst({
         where: { email: dto.email, noteId }

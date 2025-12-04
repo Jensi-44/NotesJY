@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import loaderAnimation from "../../../public/loader.json";
+import Lottie from "lottie-react";
 
 const backend = process.env.NEXT_PUBLIC_API_URL || "https://test-fkc55.ondigitalocean.app";
 
@@ -13,6 +15,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+   const [redirectLoading, setRedirectLoading] = useState(false);
   const router = useRouter();
 
   const submit = async (e: React.FormEvent) => {
@@ -68,6 +72,14 @@ setTimeout(() => {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-yellow-50">
+       {redirectLoading && (
+        <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-sm z-50">
+          <div className="w-48 h-48">
+            <Lottie animationData={loaderAnimation} loop={true} />
+          </div>
+        </div>
+      )}
+
       <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-yellow-200">
         <h2 className="text-3xl font-bold text-gray-800 text-center mb-6">
           Create Account
@@ -124,12 +136,16 @@ setTimeout(() => {
             />
           </div>
 
-          <button
+           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all text-lg"
+            className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all text-lg flex items-center justify-center gap-2"
           >
-            {loading ? "Creating account..." : "Sign Up"}
+            {loading ? (
+              <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              "Sign Up"
+            )}
           </button>
         </form>
 

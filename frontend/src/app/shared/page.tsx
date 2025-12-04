@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Lottie from "lottie-react";
+import loaderAnimation from "../../../public/loader.json"; 
 
 type SharedNote = {
   note: {
@@ -18,6 +20,7 @@ const backend = process.env.NEXT_PUBLIC_API_URL || "https://test-fkc55.ondigital
 
 export default function SharedPage() {
   const [sharedNotes, setSharedNotes] = useState<SharedNote[]>([]);
+    const [loading, setLoading] = useState(true); 
   const router = useRouter();
 
   useEffect(() => {
@@ -25,13 +28,17 @@ export default function SharedPage() {
       const token = localStorage.getItem("token");
       if (!token) return router.push("/login");
 
-      const res = await fetch(`${backend}/notes/shared`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const res = await fetch(`${backend}/notes/shared`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const data = await res.json();
-      const sharedArray = Array.isArray(data) ? data : data?.data || [];
-      setSharedNotes(sharedArray);
+        const data = await res.json();
+        const sharedArray = Array.isArray(data) ? data : data?.data || [];
+        setSharedNotes(sharedArray);
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadShared();
@@ -39,6 +46,14 @@ export default function SharedPage() {
 
   return (
     <main className="min-h-screen p-6 bg-white">
+
+       {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50">
+          <div className="w-40 h-40">
+            <Lottie animationData={loaderAnimation} loop={true} />
+          </div>
+        </div>
+      )}
       <h1 className="text-3xl font-bold mb-6">Shared With Me</h1>
 
       {/* <button

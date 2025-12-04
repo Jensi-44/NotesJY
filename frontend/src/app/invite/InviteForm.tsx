@@ -2,6 +2,8 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import Lottie from "lottie-react";
+import loaderAnimation from "../../../public/loader.json";
 
 const backend = process.env.NEXT_PUBLIC_API_URL || "https://test-fkc55.ondigitalocean.app";
 
@@ -15,6 +17,7 @@ export default function InviteForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+    const [loader, setLoader] = useState(false); 
 
   async function acceptInvitation() {
     if (!email || !noteId) return;
@@ -25,6 +28,8 @@ export default function InviteForm() {
     }
 
     setLoading(true);
+      setLoader(true);
+
 
     try {
       const res = await fetch(`${backend}/auth/accept-invite`, {
@@ -42,6 +47,7 @@ export default function InviteForm() {
       if (!res.ok) {
         setStatusMsg(data.message || "Something went wrong.");
         setLoading(false);
+         setLoader(false);
         return;
       }
 
@@ -49,6 +55,7 @@ export default function InviteForm() {
       setTimeout(() => router.push("/login"), 1500);
     } catch (err) {
       setStatusMsg("Server error. Try again.");
+       setLoader(false);
     }
 
     setLoading(false);
@@ -56,6 +63,14 @@ export default function InviteForm() {
 
   return (
     <main className="min-h-screen bg-white flex justify-center items-center p-6">
+        {loader && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="w-48 h-48">
+            <Lottie animationData={loaderAnimation} loop={true} />
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-md p-6 border rounded-xl shadow bg-white">
         <h1 className="text-2xl font-bold">Accept Invitation</h1>
         <p className="text-gray-600 mt-2">You are invited to access a note shared with:</p>

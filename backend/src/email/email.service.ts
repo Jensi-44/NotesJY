@@ -11,7 +11,7 @@ export class EmailService {
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
+ this.transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
       secure: false, 
