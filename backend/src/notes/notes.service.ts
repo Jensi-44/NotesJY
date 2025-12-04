@@ -155,71 +155,86 @@ export class NotesService {
   }
 
 async shareNote(noteId: string, dto: ShareNoteDto, user: AuthUser) {
-  const note = await this.prisma.note.findUnique({
-    where: { id: noteId },
-  });
-  if (!note) throw new NotFoundException("Note not found");
+  try {
+    const note = await this.prisma.note.findUnique({
+      where: { id: noteId },
+    });
+    if (!note) throw new NotFoundException("Note not found");
 
-  const targetUser = await this.prisma.user.findUnique({
-    where: { email: dto.email },
-  });
-
-
-  if (!targetUser) {
-
-    const existingInvite = await this.prisma.invitation.findFirst({
-      where: { email: dto.email, noteId }
+    const targetUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
     });
 
-    if (!existingInvite) {
-      await this.prisma.invitation.create({
-        data: {
-          email: dto.email,
-          noteId,
-          accepted: false,
-          userId: null,
-          acceptedAt: null
-        },
+    // If user does not exist → Send Invitation Email
+    if (!targetUser) {
+      const existingInvite = await this.prisma.invitation.findFirst({
+        where: { email: dto.email, noteId }
       });
+
+      if (!existingInvite) {
+        await this.prisma.invitation.create({
+          data: {
+            email: dto.email,
+            noteId,
+            accepted: false,
+            userId: null,
+            acceptedAt: null
+          },
+        });
+      }
+
+      const inviteLink =
+        `${process.env.FRONTEND_URL}/invite?email=${dto.email}&note=${noteId}`;
+
+      try {
+        await this.emailService.sendInvitationEmail(
+          dto.email,
+          note.title,
+          user.username,
+          inviteLink
+        );
+      } catch (err) {
+        console.error("Invitation Email Failed:", err.message);
+      }
+
+      return { message: "Invitation created. Email sending attempted." };
     }
 
-    const inviteLink =
-      `${process.env.FRONTEND_URL}/invite?email=${dto.email}&note=${noteId}`;
-
-    await this.emailService.sendInvitationEmail(
-      dto.email,
-      note.title,
-      user.username,
-      inviteLink
-    );
-
-    return { message: "Invitation sent. User must sign up to access this note." };
-  }
-  const share = await this.prisma.noteShare.upsert({
-    where: {
-      noteId_userId: {
+    // If user exists → Share access
+    const share = await this.prisma.noteShare.upsert({
+      where: {
+        noteId_userId: {
+          noteId,
+          userId: targetUser.id,
+        },
+      },
+      update: { permission: dto.permission },
+      create: {
         noteId,
         userId: targetUser.id,
+        permission: dto.permission,
       },
-    },
-    update: { permission: dto.permission },
-    create: {
-      noteId,
-      userId: targetUser.id,
-      permission: dto.permission,
-    },
-  });
+    });
 
-  await this.emailService.sendShareNotification(
-    targetUser.email,
-    note.title,
-    user.username,
-    dto.permission,
-    `${process.env.FRONTEND_URL}/shared`
-  );
+    try {
+      await this.emailService.sendShareNotification(
+        targetUser.email,
+        note.title,
+        user.username,
+        dto.permission,
+        `${process.env.FRONTEND_URL}/shared`
+      );
+    } catch (err) {
+      console.error("Share Notification Email Failed:", err.message);
+    }
 
-  return { message: "Note shared successfully", share };
+    return { message: "Note shared successfully", share };
+  } catch (error) {
+    console.error("Share API Error:", error);
+    throw error; // preserve error for debugging
+  }
 }
+
 
   async getSharedNotes(user: AuthUser) {
     return this.prisma.noteShare.findMany({
